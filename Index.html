@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Simulator - First Person</title>
+    <style>
+        body { margin: 0; padding: 0; width: 100%; height: 100vh; overflow: hidden; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        
+        #menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        #menu.hidden { display: none; }
+        
+        .box { background: white; padding: 50px; border-radius: 20px; text-align: center; max-width: 600px; }
+        .box h1 { color: #667eea; font-size: 40px; margin-bottom: 20px; }
+        .box p { color: #666; margin-bottom: 30px; }
+        
+        .section { margin: 30px 0; text-align: left; }
+        .section h3 { color: #667eea; margin-bottom: 12px; }
+        
+        .btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+        .btn { padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn:hover, .btn.on { background: #667eea; color: white; }
+        
+        .start { width: 100%; padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; font-size: 16px; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 30px; }
+        .start:disabled { opacity: 0.4; }
+        
+        #chat { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 800px; display: none; z-index: 100; box-shadow: 0 10px 40px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
+        #chat h3 { color: #667eea; margin: 0 0 15px 0; font-size: 18px; }
+        #msgs { font-size: 14px; margin: 10px 0; max-height: 150px; overflow-y: auto; line-height: 1.5; }
+        .msg { margin: 8px 0; padding: 8px; background: #f9f9f9; border-radius: 5px; }
+        .msg strong { color: #667eea; }
+        .msg.student { background: #fff9e6; }
+        .msg.student strong { color: #ffd700; }
+        .opt { background: #f0f0f0; border: 2px solid #667eea; padding: 10px; margin: 8px 0; cursor: pointer; border-radius: 5px; font-size: 13px; font-weight: 500; transition: all 0.2s ease; }
+        .opt:hover { background: #667eea; color: white; transform: translateX(5px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .opt:active { transform: translateX(3px); }
+        #inp { margin-top: 10px; display: flex; gap: 8px; }
+        #inp input { flex: 1; padding: 10px; border: 2px solid #667eea; border-radius: 5px; font-size: 13px; }
+        #inp button { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        #companyInfo { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold; z-index: 50; color: #667eea; border: 3px solid #667eea; max-width: 500px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; }
+        #companyInfo .founder { font-size: 16px; color: #333; display: block; margin-bottom: 5px; }
+        #companyInfo .company { font-size: 20px; color: #667eea; font-weight: bold; }
+        
+        #locationLabel { position: fixed; top: 20px; right: 20px; background: rgba(255,255,255,0.9); padding: 15px 25px; border-radius: 8px; font-size: 16px; font-weight: bold; z-index: 50; }
+        
+        #instructions { position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.85); padding: 15px 20px; border-radius: 8px; font-size: 14px; color: #fff; z-index: 50; border: 2px solid #667eea; max-width: 250px; line-height: 1.6; }
+        #instructions h4 { margin: 0 0 10px 0; color: #667eea; font-size: 14px; }
+        #instructions p { margin: 5px 0; font-size: 13px; color: #ddd; }
+        #instructions .key { background: #667eea; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold; display: inline-block; min-width: 30px; text-align: center; }
+        
+        #hud { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; font-size: 14px; color: #0f0; z-index: 50; font-family: monospace; border: 2px solid #0f0; }
+        #hud strong { color: #0f0; }
+        
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; pointer-events: none; z-index: 50; }
+        .crosshair-line { position: absolute; background: #0f0; opacity: 0.7; }
+        .crosshair-h { width: 20px; height: 2px; top: 14px; left: 5px; }
+        .crosshair-v { width: 2px; height: 20px; top: 5px; left: 14px; }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+    <div id="menu">
+        <div class="box">
+            <h1>🌍 Career Simulator</h1>
+            <p>First-person experience! Explore and learn from industry leaders!</p>
+            
+            <div class="section">
+                <h3>Choose Industry:</h3>
+                <div class="btns">
+                    <button class="btn" onclick="pickInd('fintech')">💰 Fintech</button>
+                    <button class="btn" onclick="pickInd('beauty')">💄 Beauty</button>
+                    <button class="btn" onclick="pickInd('healthtech')">⚕️ HealthTech</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>Choose Location:</h3>
+                <div class="btns" id="locs"></div>
+            </div>
+            
+            <button class="start" id="go" onclick="start()" disabled>START ✈️</button>
+        </div>
+    </div>
+    <div id="chat">
+        <h3 id="name"></h3>
+        <div id="msgs"></div>
+        <div id="opts"></div>
+        <div id="inp">
+            <input type="text" id="ask" placeholder="Ask...">
+            <button onclick="send()">Ask</button>
+        </div>
+    </div>
+    <div id="companyInfo">
+        <span class="founder" id="founderName"></span>
+        <span class="company" id="companyName"></span>
+    </div>
+    <div id="locationLabel"></div>
+    
+    <div id="instructions">
+        <h4>🎮 CONTROLS</h4>
+        <p><span class="key">W</span> Forward</p>
+        <p><span class="key">A</span> Left</p>
+        <p><span class="key">S</span> Backward</p>
+        <p><span class="key">D</span> Right</p>
+        <p><span class="key">MOUSE</span> Look Around</p>
+        <p><span class="key">E</span> Talk to Person</p>
+        <p><span class="key">ESC</span> Close Chat</p>
+    </div>
+    
+    <div id="hud">
+        <strong>WORKSPACE SCAN</strong><br>
+        <span id="fps">FPS: 60</span><br>
+        <span id="nearby">Nearby: 0</span><br>
+        <span id="working">Working: 0</span><br>
+        <span id="discussion">Discussion: 0</span>
+    </div>
+    
+    <div id="crosshair">
+        <div class="crosshair-line crosshair-h"></div>
+        <div class="crosshair-line crosshair-v"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const DATA = {
+            fintech: { Boston: [
+                { name: "PaymentFlow", founder: "Sarah Chen", desc: "AI payment processing" },
+                { name: "CreditMind", founder: "Marcus Johnson", desc: "Credit scoring" },
+                { name: "PortfolioAI", founder: "Dr. Ravi Patel", desc: "Investment advisory" },
+                { name: "SeaRemit", founder: "Ananya Sharma", desc: "Remittance platform" },
+                { name: "TradingEdge", founder: "Wei Liu", desc: "Trading platform" }
+            ], Singapore: [
+                { name: "SeaRemit", founder: "Ananya Sharma", desc: "Remittance platform" },
+                { name: "TradingEdge", founder: "Wei Liu", desc: "Trading platform" },
+                { name: "BlockChainPay", founder: "Priya Desai", desc: "Crypto payments" },
+                { name: "PaymentFlow", founder: "Sarah Chen", desc: "AI payment processing" },
+                { name: "CreditMind", founder: "Marcus Johnson", desc: "Credit scoring" }
+            ]},
+            beauty: { Seoul: [
+                { name: "GlowMatch", founder: "Kim Ji-won", desc: "AR makeup app" },
+                { name: "SkinGenome", founder: "Park Min-jun", desc: "DNA skincare" },
+                { name: "BellaSupply", founder: "Lee Seo-yeon", desc: "Beauty marketplace" },
+                { name: "VirtuBeauty", founder: "Emma Thompson", desc: "Beauty consultations" },
+                { name: "InkBlend", founder: "Amara Okonkwo", desc: "Eco cosmetics" }
+            ], London: [
+                { name: "VirtuBeauty", founder: "Emma Thompson", desc: "Beauty consultations" },
+                { name: "InkBlend", founder: "Amara Okonkwo", desc: "Eco cosmetics" },
+                { name: "SkincareIQ", founder: "Dr. James Harper", desc: "Skincare AI" },
+                { name: "GlowMatch", founder: "Kim Ji-won", desc: "AR makeup app" },
+                { name: "SkinGenome", founder: "Park Min-jun", desc: "DNA skincare" }
+            ]},
+            healthtech: { "San Francisco": [
+                { name: "TelemedicineHub", founder: "Dr. Lisa Wong", desc: "Online doctors" },
+                { name: "MentalWell", founder: "James Rodriguez", desc: "Mental health AI" },
+                { name: "DocNearby", founder: "Dr. Anil Gupta", desc: "Affordable healthcare" },
+                { name: "HealthMonitor", founder: "Priya Nair", desc: "Health wearables" }
+            ], Mumbai: [
+                { name: "DocNearby", founder: "Dr. Anil Gupta", desc: "Affordable healthcare" },
+                { name: "HealthMonitor", founder: "Priya Nair", desc: "Health wearables" },
+                { name: "TelemedicineHub", founder: "Dr. Lisa Wong", desc: "Online doctors" },
+                { name: "MentalWell", founder: "James Rodriguez", desc: "Mental health AI" }
+            ]}
+        };
+        const INDUSTRY_THEMES = {
+            fintech: { floorColor: 0x1a2f4f, wallColor: 0x2d5a8c, bgColor: 0x0f1f35, accentColor: 0x4a90e2, name: "Fintech Hub" },
+            beauty: { floorColor: 0x4f1f3a, wallColor: 0x8c2d5a, bgColor: 0x350f24, accentColor: 0xe24a90, name: "Beauty Studio" },
+            healthtech: { floorColor: 0x1f4f2f, wallColor: 0x2d8c4a, bgColor: 0x0f350f, accentColor: 0x4ae290, name: "Healthcare Lab" }
+        };
+        const FINTECH_QUOTES = ["This technology is helping us cut costs by 40%!", "Our AI model is predicting market trends better than expected!", "The data analytics are incredible - look at that growth curve!", "These algorithms have improved our accuracy tremendously!", "We're processing transactions 10x faster now!"];
+        const BEAUTY_QUOTES = ["This new hydrating cream has amazing ingredients!", "The customer response to our formula has been incredible!", "We're seeing 95% satisfaction rates on this product line!", "The skin-friendly composition really makes a difference!", "Our dermatologist approved this formulation - it's safe and effective!"];
+        const HEALTHTECH_QUOTES = ["This blood sugar monitor is revolutionizing diabetes care!", "The accuracy rate of 98% is industry-leading!", "Patients can now track real-time glucose levels with their phones!", "We've reduced false alarms by 85% with our new sensor!", "This wearable device is a game changer for health monitoring!"];
+        const CONVERSATION_TOPICS = ["How do you approach user acquisition?", "What's your biggest challenge right now?", "Are you planning to expand internationally?", "What's your go-to-market strategy?", "How are you thinking about retention?"];
+        const RESPONSES_MAP = {
+            "How do you approach user acquisition?": ["We focus on organic growth through our community.", "We're leveraging partnerships and influencers."],
+            "What's your biggest challenge right now?": ["Finding the right talent has been tough.", "Scaling our infrastructure without compromising quality."],
+            "Are you planning to expand internationally?": ["Yes, we're looking at Southeast Asia next.", "International expansion is in our roadmap."],
+            "What's your go-to-market strategy?": ["B2B partnerships with major corporations.", "Direct-to-consumer through digital channels."],
+            "How are you thinking about retention?": ["We focus on product quality first.", "Community engagement is key for us."]
+        };
+        let ind = null, loc = null;
+        let scene, cam, render;
+        let people = [];
+        let discussionZone = null;
+        let pos = new THREE.Vector3(0, 1.6, 5);
+        let k = {}, m = { x: 0, y: 0 }, talking = null;
+        let fps = 0, fpsCounter = 0, fpsTime = 0;
+        function pickInd(i) {
+            ind = i;
+            document.querySelectorAll('[onclick*="pickInd"]').forEach(b => b.classList.remove('on'));
+            event.target.classList.add('on');
+            const ls = Object.keys(DATA[i]);
+            document.getElementById('locs').innerHTML = ls.map(l => `<button class="btn" onclick="pickLoc('${l}')">${l}</button>`).join('');
+            document.getElementById('go').disabled = true;
+        }
+        function pickLoc(l) {
+            loc = l;
+            document.querySelectorAll('#locs .btn').forEach(b => b.classList.remove('on'));
+            event.target.classList.add('on');
+            document.getElementById('go').disabled = false;
+        }
+        function start() {
+            document.getElementById('menu').classList.add('hidden');
+            init();
+        }
+        function createCharacter(torsoColor, position) {
+            const g = new THREE.Group();
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.8, 8), new THREE.MeshStandardMaterial({ color: torsoColor, roughness: 0.6 }));
+            torso.position.y = 0.8;
+            g.add(torso);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), new THREE.MeshStandardMaterial({ color: 0xffcba4, roughness: 0.5 }));
+            head.position.y = 1.75;
+            g.add(head);
+            const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xffcba4 }));
+            leftArm.position.set(-0.45, 1.3, 0);
+            leftArm.rotation.z = 0.2;
+            g.add(leftArm);
+            g.userData.leftArm = leftArm;
+            const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xffcba4 }));
+            rightArm.position.set(0.45, 1.3, 0);
+            rightArm.rotation.z = -0.2;
+            g.add(rightArm);
+            g.userData.rightArm = rightArm;
+            const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.6, 6), new THREE.MeshStandardMaterial({ color: 0x2c2c2c }));
+            leftLeg.position.set(-0.15, 0.3, 0);
+            g.add(leftLeg);
+            g.userData.leftLeg = leftLeg;
+            const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.6, 6), new THREE.MeshStandardMaterial({ color: 0x2c2c2c }));
+            rightLeg.position.set(0.15, 0.3, 0);
+            g.add(rightLeg);
+            g.userData.rightLeg = rightLeg;
+            g.position.copy(position);
+            g.userData.state = 'idle';
+            g.userData.animationTime = 0;
+            g.userData.speechIndex = 0;
+            g.userData.speechBubble = null;
+            return g;
+        }
+        function createSpeechBubble(scene, character, text, offset = { x: 0, y: 0.5, z: 0 }) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const maxWidth = 450;
+            const lineHeight = 40;
+            const words = text.split(' ');
+            let lines = [];
+            let currentLine = '';
+            words.forEach(word => {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            });
+            if (currentLine) lines.push(currentLine);
+            const startY = (canvas.height - lines.length * lineHeight) / 2;
+            lines.forEach((line, i) => {
+                ctx.fillText(line, canvas.width / 2, startY + i * lineHeight);
+            });
+            const texture = new THREE.CanvasTexture(canvas);
+            const bubble = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), new THREE.MeshStandardMaterial({ map: texture, emissive: 0xffffff, emissiveIntensity: 0.3 }));
+            bubble.position.set(offset.x, offset.y, offset.z);
+            character.add(bubble);
+            return bubble;
+        }
+        function createChartDisplay(position) {
+            const group = new THREE.Group();
+            const stand = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            stand.position.y = 1.5;
+            group.add(stand);
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.1), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+            frame.position.set(0, 2.5, -0.1);
+            group.add(frame);
+            const data = [0.4, 0.65, 0.8, 0.75, 0.9];
+            const barColors = [0x4a90e2, 0x357abd, 0x2d5a8c, 0x1f3f5c, 0x162a3d];
+            for (let i = 0; i < data.length; i++) {
+                const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, data[i] * 1.5, 0.08), new THREE.MeshStandardMaterial({ color: barColors[i], emissive: barColors[i], emissiveIntensity: 0.2 }));
+                bar.position.set(-0.8 + i * 0.45, 1.5 + (data[i] * 1.5) / 2, 0);
+                group.add(bar);
+            }
+            const axisX = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.05, 0.08), new THREE.MeshStandardMaterial({ color: 0x666666 }));
+            axisX.position.set(0, 1.2, 0);
+            group.add(axisX);
+            const axisY = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2, 0.08), new THREE.MeshStandardMaterial({ color: 0x666666 }));
+            axisY.position.set(-1.1, 2.2, 0);
+            group.add(axisY);
+            group.position.copy(position);
+            return group;
+        }
+        function createBeautyProductDisplay(position) {
+            const group = new THREE.Group();
+            const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.5, 32), new THREE.MeshStandardMaterial({ color: 0xffc0cb, metalness: 0.3, roughness: 0.4 }));
+            jar.position.y = 1.5;
+            group.add(jar);
+            const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0xd4a574 }));
+            lid.position.y = 2.1;
+            group.add(lid);
+            const colors = [0xff69b4, 0xffb6c1, 0xffc0cb, 0xdb7093, 0xff1493];
+            for (let i = 0; i < 5; i++) {
+                const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.4, 16), new THREE.MeshStandardMaterial({ color: colors[i] }));
+                const angle = (i / 5) * Math.PI * 2;
+                const radius = 0.6;
+                bottle.position.set(Math.cos(angle) * radius, 1.3, Math.sin(angle) * radius);
+                group.add(bottle);
+            }
+            group.position.copy(position);
+            return group;
+        }
+        function createBloodSugarMonitor(position) {
+            const group = new THREE.Group();
+            const screen = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.1), new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00ff00 }));
+            screen.position.y = 2;
+            group.add(screen);
+            const glow = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.05, 0.15), new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00aa00, transparent: true, opacity: 0.2 }));
+            glow.position.y = 2;
+            group.add(glow);
+            const wristband = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.08, 16, 100), new THREE.MeshStandardMaterial({ color: 0xff3333, metalness: 0.6 }));
+            wristband.position.y = 1;
+            wristband.rotation.x = Math.PI / 2;
+            group.add(wristband);
+            const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+            wire.position.set(0, 1.4, 0);
+            group.add(wire);
+            group.position.copy(position);
+            return group;
+        }
+        function createWorkstation(position) {
+            const group = new THREE.Group();
+            const chairSeat = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.08, 16), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7 }));
+            chairSeat.position.set(0, 0.5, 0);
+            group.add(chairSeat);
+            const chairBase = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.05, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            chairBase.position.set(0, 0.05, 0);
+            group.add(chairBase);
+            const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.6), new THREE.MeshStandardMaterial({ color: 0x8b6914, roughness: 0.6 }));
+            deskTop.position.set(0, 0.9, 0.4);
+            group.add(deskTop);
+            for (let i = 0; i < 4; i++) {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.85, 0.08), new THREE.MeshStandardMaterial({ color: 0x5c4a1a }));
+                const legX = (i < 2 ? -0.65 : 0.65);
+                const legZ = (i % 2 === 0 ? 0 : 0.8);
+                leg.position.set(legX, 0.425, legZ + 0.4);
+                group.add(leg);
+            }
+            const desktopMonitor = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, emissive: 0x00ff00 }));
+            desktopMonitor.position.set(0.4, 1.4, 0.2);
+            group.add(desktopMonitor);
+            const desktopStand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.08), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            desktopStand.position.set(0.4, 1.05, 0.2);
+            group.add(desktopStand);
+            const laptop = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.02, 0.3), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            laptop.position.set(-0.35, 0.98, 0.3);
+            laptop.rotation.z = 0.3;
+            group.add(laptop);
+            const laptopScreen = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, emissive: 0x0088ff }));
+            laptopScreen.position.set(-0.35, 1.2, 0.3);
+            laptopScreen.rotation.z = 0.4;
+            group.add(laptopScreen);
+            const desktopGlow = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.52, 0.1), new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00aa00, transparent: true, opacity: 0.15 }));
+            desktopGlow.position.set(0.4, 1.4, 0.25);
+            group.add(desktopGlow);
+            const laptopGlow = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.27, 0.1), new THREE.MeshStandardMaterial({ color: 0x0088ff, emissive: 0x0055aa, transparent: true, opacity: 0.15 }));
+            laptopGlow.position.set(-0.35, 1.2, 0.35);
+            laptopGlow.rotation.z = 0.4;
+            group.add(laptopGlow);
+            group.position.copy(position);
+            return group;
+        }
+        function init() {
+            const theme = INDUSTRY_THEMES[ind];
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(theme.bgColor);
+            scene.fog = new THREE.Fog(theme.bgColor, 30, 100);
+            cam = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
+            cam.position.copy(pos);
+            render = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+            render.setSize(window.innerWidth, window.innerHeight);
+            render.shadowMap.enabled = true;
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const light = new THREE.DirectionalLight(0xffffff, 0.6);
+            light.position.set(30, 30, 30);
+            light.castShadow = true;
+            scene.add(light);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({ color: theme.floorColor, roughness: 0.8 }));
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            const wall1 = new THREE.Mesh(new THREE.PlaneGeometry(100, 20), new THREE.MeshStandardMaterial({ color: theme.wallColor }));
+            wall1.position.z = -50;
+            wall1.position.y = 10;
+            scene.add(wall1);
+            const wall2 = new THREE.Mesh(new THREE.PlaneGeometry(100, 20), new THREE.MeshStandardMaterial({ color: theme.wallColor }));
+            wall2.position.x = -50;
+            wall2.position.y = 10;
+            wall2.rotation.y = Math.PI / 2;
+            scene.add(wall2);
+            const wall3 = new THREE.Mesh(new THREE.PlaneGeometry(100, 20), new THREE.MeshStandardMaterial({ color: theme.wallColor }));
+            wall3.position.x = 50;
+            wall3.position.y = 10;
+            wall3.rotation.y = Math.PI / 2;
+            scene.add(wall3);
+            document.getElementById('locationLabel').innerHTML = `<span style="color: #${theme.accentColor.toString(16).padStart(6, '0')};">📍 ${loc} - ${theme.name}</span>`;
+            const starts = DATA[ind][loc];
+            const cs = [0x4169e1, 0xff69b4, 0x228b22, 0xffa500, 0xff6347, 0x20b2aa, 0xff8c00, 0x9370db];
+            const workstationPositions = [];
+            for (let x = -25; x <= 25; x += 15) {
+                for (let z = -20; z <= 20; z += 15) {
+                    workstationPositions.push(new THREE.Vector3(x, 0, z));
+                    const workstation = createWorkstation(new THREE.Vector3(x, 0, z));
+                    scene.add(workstation);
+                }
+            }
+            discussionZone = {
+                position: new THREE.Vector3(0, 0, 0),
+                characters: [],
+                quotes: [],
+                displayObject: null
+            };
+            if (ind === 'fintech') {
+                discussionZone.quotes = FINTECH_QUOTES;
+                discussionZone.displayObject = createChartDisplay(new THREE.Vector3(0, 0, -5));
+                scene.add(discussionZone.displayObject);
+            } else if (ind === 'beauty') {
+                discussionZone.quotes = BEAUTY_QUOTES;
+                discussionZone.displayObject = createBeautyProductDisplay(new THREE.Vector3(0, 0, -5));
+                scene.add(discussionZone.displayObject);
+            } else if (ind === 'healthtech') {
+                discussionZone.quotes = HEALTHTECH_QUOTES;
+                discussionZone.displayObject = createBloodSugarMonitor(new THREE.Vector3(0, 0, -5));
+                scene.add(discussionZone.displayObject);
+            }
+            for (let i = 0; i < starts.length; i++) {
+                const colorIdx = i % cs.length;
+                let char;
+                if (i < 4) {
+                    const angle = (i / 4) * Math.PI * 2;
+                    const radius = 3;
+                    const charPos = new THREE.Vector3(Math.cos(angle) * radius, 0, -5 + Math.sin(angle) * radius);
+                    char = createCharacter(cs[colorIdx], charPos);
+                    char.userData.state = 'discussing';
+                    char.rotation.y = Math.atan2(-charPos.z + 5, -charPos.x);
+                    discussionZone.characters.push(char);
+                } else {
+                    const workstationPos = workstationPositions[(i - 4) % workstationPositions.length];
+                    char = createCharacter(cs[colorIdx], workstationPos.clone());
+                    char.userData.state = 'sitting';
+                    char.position.y = 0.65;
+                }
+                char.userData.founder = starts[i].founder;
+                char.userData.company = starts[i].name;
+                char.userData.desc = starts[i].desc;
+                people.push(char);
+                scene.add(char);
+            }
+            setupInput();
+            loop();
+        }
+        function setupInput() {
+            document.addEventListener('keydown', e => {
+                if (document.activeElement.id !== 'ask') {
+                    k[e.key.toLowerCase()] = true;
+                    if (e.key.toLowerCase() === 'e' && !talking) {
+                        let near = null, d = Infinity;
+                        people.forEach(p => {
+                            const dist = pos.distanceTo(p.position);
+                            if (dist < 5 && dist < d) { d = dist; near = p; }
+                        });
+                        if (near) {
+                            document.getElementById('name').textContent = near.userData.founder + " - " + near.userData.company;
+                            document.getElementById('founderName').textContent = "👤 " + near.userData.founder;
+                            document.getElementById('companyName').textContent = "🏢 " + near.userData.company;
+                            document.getElementById('companyInfo').style.display = 'block';
+                            document.getElementById('msgs').innerHTML = `<div class="msg"><strong>${near.userData.founder}:</strong> Hey! I'm working on ${near.userData.company}. What do you want to know?</div>`;
+                            document.getElementById('opts').innerHTML = CONVERSATION_TOPICS.slice(0, 4).map(o => `<div class="opt" onclick="talk('${o}','${near.userData.founder}')">${o}</div>`).join('');
+                            document.getElementById('chat').style.display = 'block';
+                            talking = near;
+                        }
+                    }
+                    if (e.key === 'Escape') {
+                        document.getElementById('chat').style.display = 'none';
+                        document.getElementById('companyInfo').style.display = 'none';
+                        talking = null;
+                    }
+                }
+            });
+            document.addEventListener('keyup', e => { k[e.key.toLowerCase()] = false; });
+            document.addEventListener('mousemove', e => {
+                if (document.pointerLockElement === render.domElement) {
+                    m.x += e.movementX * 0.003;
+                    m.y -= e.movementY * 0.003;
+                    m.y = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, m.y));
+                }
+            });
+            render.domElement.addEventListener('click', () => render.domElement.requestPointerLock());
+        }
+        window.talk = function(q, founder) {
+            const p = people.find(x => x.userData.founder === founder);
+            if (!p) return;
+            document.getElementById('msgs').innerHTML += `<div class="msg student"><strong>You:</strong> ${q}</div>`;
+            let responses = RESPONSES_MAP[q] || ["That's a great question!"];
+            let response = responses[Math.floor(Math.random() * responses.length)];
+            document.getElementById('msgs').innerHTML += `<div class="msg"><strong>${founder}:</strong> ${response}</div>`;
+            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+        };
+        window.send = function() {
+            const q = document.getElementById('ask').value.trim();
+            if (q && talking) {
+                talk(q, talking.userData.founder);
+                document.getElementById('ask').value = '';
+            }
+        };
+        function updateCharacters(deltaTime) {
+            let discussionCount = 0;
+            people.forEach((char, idx) => {
+                char.userData.animationTime += deltaTime;
+                const distToPlayer = pos.distanceTo(char.position);
+                if (distToPlayer < 25) {
+                    const dirToPlayer = new THREE.Vector3().subVectors(pos, char.position);
+                    dirToPlayer.y = 0;
+                    dirToPlayer.normalize();
+                    const targetRotY = Math.atan2(dirToPlayer.x, dirToPlayer.z);
+                    let angleDiff = targetRotY - char.rotation.y;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    const rotSpeed = Math.max(0.08, 0.3 * (1 - distToPlayer / 25));
+                    char.rotation.y += angleDiff * rotSpeed;
+                }
+                if (char.userData.state === 'discussing') {
+                    discussionCount++;
+                    const gestureSpeed = 2;
+                    const gesture = Math.sin(char.userData.animationTime * gestureSpeed) * 0.3;
+                    char.userData.rightArm.rotation.z = -0.5 + gesture;
+                    char.userData.leftArm.rotation.z = 0.5 - gesture;
+                    if (!char.userData.speechBubble && Math.random() > 0.97) {
+                        const quoteIdx = Math.floor(Math.random() * discussionZone.quotes.length);
+                        const quote = discussionZone.quotes[quoteIdx];
+                        const bubble = createSpeechBubble(scene, char, quote, { x: 0, y: 2.2, z: 0.5 });
+                        char.userData.speechBubble = bubble;
+                        setTimeout(() => {
+                            if (char.userData.speechBubble) {
+                                char.remove(char.userData.speechBubble);
+                                char.userData.speechBubble = null;
+                            }
+                        }, 3000);
+                    }
+                } else if (char.userData.state === 'sitting') {
+                    const typingSpeed = 3;
+                    const armMovement = Math.sin(char.userData.animationTime * typingSpeed) * 0.15;
+                    char.userData.rightArm.rotation.z = -0.5 + armMovement;
+                    char.userData.leftArm.rotation.z = 0.5 - armMovement;
+                }
+            });
+            document.getElementById('discussion').textContent = `Discussion: ${discussionCount}`;
+            document.getElementById('working').textContent = `Working: ${people.filter(p => p.userData.state === 'sitting').length}/${people.length}`;
+            document.getElementById('nearby').textContent = `Nearby: ${people.filter(p => pos.distanceTo(p.position) < 20).length}`;
+        }
+        let lastTime = Date.now();
+        let frameCount = 0;
+        function loop() {
+            requestAnimationFrame(loop);
+            const now = Date.now();
+            const deltaTime = Math.min(0.016, (now - lastTime) / 1000);
+            lastTime = now;
+            frameCount++;
+            fpsCounter++;
+            fpsTime += deltaTime;
+            if (fpsTime >= 1) {
+                fps = fpsCounter;
+                fpsCounter = 0;
+                fpsTime = 0;
+            }
+            document.getElementById('fps').textContent = `FPS: ${fps}`;
+            updateCharacters(deltaTime);
+            const moveDir = new THREE.Vector3();
+            if (document.getElementById('chat').style.display !== 'block') {
+                if (k['w']) moveDir.z -= 1;
+                if (k['s']) moveDir.z += 1;
+                if (k['a']) moveDir.x -= 1;
+                if (k['d']) moveDir.x += 1;
+            }
+            if (moveDir.length() > 0) {
+                moveDir.normalize();
+                moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), m.x);
+                moveDir.multiplyScalar(0.15);
+                pos.add(moveDir);
+            }
+            pos.x = Math.max(-45, Math.min(45, pos.x));
+            pos.z = Math.max(-45, Math.min(45, pos.z));
+            pos.y = 1.6;
+            cam.position.copy(pos);
+            cam.rotation.order = 'YXZ';
+            cam.rotation.y = m.x;
+            cam.rotation.x = m.y;
+            render.render(scene, cam);
+        }
+        window.addEventListener('resize', () => {
+            cam.aspect = window.innerWidth / window.innerHeight;
+            cam.updateProjectionMatrix();
+            render.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
